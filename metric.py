@@ -3,6 +3,10 @@ import torch
 from .helper import *
 
 from enum import Enum, auto
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from .learner import Learner
 
 class State(Enum):
     TRAIN = auto()
@@ -13,6 +17,9 @@ class Metric():
     state = State.TRAIN # State of the learner in which to run step()
     do_reporting = True # If True, the metric will be printed by StatusCallback
     name = "Metric base class"
+
+    def __init__(self):
+        self.learner: Learner = None # pyright: ignore[reportAttributeAccessIssue]
 
     def __eq__(self, other) -> bool:
         assert isinstance(other, Metric)

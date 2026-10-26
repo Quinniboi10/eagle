@@ -18,7 +18,7 @@ class Learner():
     # Type hints on required CBs
     recorder: RecorderCallback
 
-    def __init__(self, model: nn.Module, optimizer: torch.optim.Optimizer, train_dl: DataLoader, valid_dl: DataLoader, loss_fn: nn.Module, metrics: Optional[list[Metric]]=None, cbs: Optional[list[Callback]]=None, clip_grads: Optional[float]=0, accum: int=1):
+    def __init__(self, model: nn.Module, optimizer: torch.optim.Optimizer, train_dl: DataLoader, valid_dl: DataLoader, loss_fn: nn.Module, metrics: Optional[list[Metric]]=None, cbs: Optional[list[Callback]]=None, clip_grads: Optional[float]=0, accum: int=1, autocast: bool=True):
         """
         Args:
             model: the PyTorch model to train
@@ -30,6 +30,7 @@ class Learner():
             cbs: Which callbacks to attach after Recorder, TrainEval, State; defaults to Status (None)
             clip_grads: Clip gradients before optimizer.step(); defaults to off (None)
             accum: How many batches to average loss across before running optimizer.step(). Simulates true_bs = train_bs * accum
+            autocast: True/False for using PyTorch's built-in automatic type casting to save memory
         """
         self.model = model
         self.optim = optimizer
@@ -40,6 +41,8 @@ class Learner():
         self.loss_fn = loss_fn
         self.clip_grads = clip_grads
         self.accum = accum
+
+        self.autocast = autocast
 
         self.num_train_batches = len(train_dl)
         self.num_valid_batches = len(valid_dl)
@@ -136,7 +139,7 @@ class Learner():
             self.y = self.y.to(self.device, non_blocking=True)
 
             # Forward
-            with torch.autocast(device_type=self.device):
+            with torch.autocast(device_type=self.device, enabled=self.autocast):
                 self.preds = self.model(self.x)
                 raw_loss = self.loss_fn(self.preds, self.y)
                 loss = raw_loss / self.accum
@@ -165,7 +168,7 @@ class Learner():
 
     def _run_valid(self):
         total = 0
-        with torch.no_grad(), torch.autocast(device_type=self.device):
+        with torch.no_grad(), torch.autocast(device_type=self.device, enabled=self.autocast):
             for self.x, self.y in progress_bar(self.valid_dl, parent=self.mb):
                 self._run_cbs("before_batch")
 
