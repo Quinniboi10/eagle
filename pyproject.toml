@@ -1,10 +1,17 @@
 [build-system]
-requires = ["setuptools"]
+requires = ["setuptools>=61.0.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "eagle"
 version = "0.1.0"
+requires-python = ">=3.9"
+dependencies = [
+    "torch>=2.6.0",       # torch.accelerator
+    "matplotlib>=3.2.2",  # First release with Python 3.9 wheels
+    "fastprogress>=0.1.17",  # List-based rows in master_bar.write(table=True)
+    "tensorboard>=1.15.0",   # Required by torch.utils.tensorboard
+]
 
 [tool.setuptools]
 packages = ["eagle"]
