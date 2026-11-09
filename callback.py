@@ -133,7 +133,7 @@ class RecorderCallback(Callback):
         metrics = {}
 
         for m in self.metrics:
-            if m.state == self.learner.state == state:
+            if m.state.value & state.value:
                 value = m.value
                 if value is not None:
                     metrics[m.name] = value
@@ -148,6 +148,7 @@ class RecorderCallback(Callback):
         self.start = time.time()
 
     def after_batch(self):
+        # Only collect training every batch, validation is only once at the end
         if self.learner.state != State.TRAIN:
             return
 
@@ -210,14 +211,14 @@ class TensorboardCallback(Callback):
 
     def after_batch(self):
         for m in self.learner.recorder.metrics:
-            if m.state == State.TRAIN:
+            if m.state.value & State.TRAIN.value:
                 self.writer.add_scalar(m.name, m.value, self.learner.recorder.step)
 
         self.writer.flush()
 
     def after_valid(self):
         for m in self.learner.recorder.metrics:
-            if m.state == State.VALID:
+            if m.state.value & State.VALID.value:
                 self.writer.add_scalar(m.name, m.value, self.learner.recorder.step)
 
         self.writer.flush()

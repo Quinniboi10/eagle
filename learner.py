@@ -54,13 +54,11 @@ class Learner():
         self.valid_bs = valid_dl.batch_size
 
 
-        self.n_epochs = cast(int, None)
-
         self.schedule = cast(torch.optim.lr_scheduler.LRScheduler, None)
 
         self.cbs: list[Callback] = []
 
-        self.loss_fn.learner = self
+        self.loss_fn.learner = self # pyright: ignore[reportArgumentType]
         self.device = device
 
         assert train_dl.batch_size
@@ -125,9 +123,10 @@ class Learner():
         if self.preds is not None:
             self.preds = self.preds.to(device)
 
-    def _run_epoch(self, curr_epoch):
+    def _run_epoch(self):
         self.optim.zero_grad()
-        for batch, (self.x, self.y) in enumerate(progress_bar(self.dl, parent=self.mb)):
+        batch = 0
+        for batch, (self.x, self.y) in enumerate(progress_bar(self.dl, parent=self.mb)): # pyright: ignore[reportArgumentType]
             lr = self.schedule.get_last_lr()
             assert len(lr) == 1, "Schedule LR must have a length of one!"
             self.lr = lr[0]
@@ -169,7 +168,7 @@ class Learner():
     def _run_valid(self):
         total = 0
         with torch.no_grad(), torch.autocast(device_type=self.device, enabled=self.autocast):
-            for self.x, self.y in progress_bar(self.valid_dl, parent=self.mb):
+            for self.x, self.y in progress_bar(self.valid_dl, parent=self.mb): # pyright: ignore[reportGeneralTypeIssues]
                 self._run_cbs("before_batch")
 
                 self.x = self.x.to(self.device, non_blocking=True)
@@ -204,7 +203,7 @@ class Learner():
         try:
             for _ in self.mb:
                 self._run_cbs("before_train")
-                self._run_epoch(self.epoch)
+                self._run_epoch()
                 self._run_cbs("after_train")
 
                 self._run_cbs("before_valid")
@@ -266,16 +265,13 @@ class Learner():
         print(f"Total:     {total:,}")
         print(f"Trainable: {trainable:,}")
 
-        rows: list[list[str|int]] = []
+        rows: list[tuple[str, int]] = []
         for name, p in self.model.named_parameters():
-            rows.append([name, p.numel()])
+            rows.append((name, p.numel()))
 
         if sort_by == "count":
             rows.sort(key=lambda a: a[1], reverse=True)
 
-        for i in range(len(rows)):
-            rows[i][1] = f"{rows[i][1]:,}"
+        display_rows: list[list[str]] = [["Name", "Parameters"]] + [[name, f"{count:,}"] for name, count in rows]
 
-        rows.insert(0, ["Name", "Parameters"])
-
-        tableify(rows)
+        tableify(display_rows)

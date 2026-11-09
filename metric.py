@@ -2,15 +2,16 @@ import torch
 
 from .helper import *
 
-from enum import Enum, auto
+from enum import Enum
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from .learner import Learner
 
 class State(Enum):
-    TRAIN = auto()
-    VALID = auto()
+    TRAIN = 0x01
+    VALID = 0b10
+    BOTH  = 0b11
 
 # Base class for a metric
 class Metric():
