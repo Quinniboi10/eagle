@@ -18,7 +18,7 @@ class Learner():
     # Type hints on required CBs
     recorder: RecorderCallback
 
-    def __init__(self, model: nn.Module, optimizer: torch.optim.Optimizer, train_dl: DataLoader, valid_dl: DataLoader, loss_fn: nn.Module, metrics: Optional[list[Metric]]=None, cbs: Optional[list[Callback]]=None, clip_grads: Optional[float]=0, accum: int=1, autocast: bool=True):
+    def __init__(self, model: nn.Module, optimizer: torch.optim.Optimizer, train_dl: DataLoader, valid_dl: DataLoader, loss_fn: nn.Module, metrics: Optional[list[Metric]]=None, cbs: Optional[list[Callback]]=None, clip_grads: Optional[float]=None, accum: int=1, autocast: bool=True):
         """
         Args:
             model: the PyTorch model to train
@@ -113,7 +113,7 @@ class Learner():
     def __call__(self, *args):
         return self.model(*args)
 
-    def to(self, device):
+    def to(self, device: str):
         self.device = device
         self.model.to(device)
         if self.x is not None:
@@ -166,7 +166,7 @@ class Learner():
             self.optim.zero_grad()
 
     def _run_valid(self):
-        total = 0
+        total, count = 0, 0
         with torch.no_grad(), torch.autocast(device_type=self.device, enabled=self.autocast):
             for self.x, self.y in progress_bar(self.valid_dl, parent=self.mb): # pyright: ignore[reportGeneralTypeIssues]
                 self._run_cbs("before_batch")
@@ -176,23 +176,24 @@ class Learner():
 
                 # Forward
                 self.preds = self.model(self.x)
-                total += self.loss_fn(self.preds, self.y).item()
+                total += self.loss_fn(self.preds, self.y).item() * self.y.shape[0] # Got to track counts so the last partial batch isn't weighted extra
+                count += self.y.shape[0]
                 self._run_cbs("after_batch")
-        self.valid_loss = total / self.num_valid_batches
+        self.valid_loss = total / count
 
-    def fit_one_cycle(self, num_epochs, max_lr=1e-3, div=25, final_div=1e5) -> None:
+    def fit_one_cycle(self, num_epochs: int, max_lr: float=1e-3, div: float=25, final_div: float=1e5) -> None:
         if max_lr >= 1e-2:
             warnings.warn("fit_one_cycle has high max_lr which could lead to gradient explosions! If loss becomes NaN, try again with a lower max LR.")
         self.schedule = torch.optim.lr_scheduler.OneCycleLR(
             self.optim, steps_per_epoch=math.ceil(len(self.dl) / self.accum), epochs=num_epochs,
             max_lr=max_lr, div_factor=div, final_div_factor=final_div
         )
-        self.fit(num_epochs, self_schedule=True)
+        self.fit(num_epochs, use_internal_schedule=True)
 
-    def fit(self, num_epochs, self_schedule=False):
+    def fit(self, num_epochs: int, use_internal_schedule: bool=False):
         assert num_epochs > 0, "Cannot train for less than 1 epoch"
         self.mb = master_bar(range(num_epochs))
-        if self_schedule == False:
+        if use_internal_schedule == False:
             self.schedule = torch.optim.lr_scheduler.ConstantLR(
                 self.optim,
                 factor=1.0
@@ -217,7 +218,7 @@ class Learner():
 
         self._run_cbs("after_fit")
 
-    def save(self, path: str, silent=False):
+    def save(self, path: str, silent: bool=False):
         p = pathlib.Path(path)
         if p.suffix != ".pt" and p.suffix != ".pth":
             p = p.with_suffix(".pt")
@@ -242,7 +243,7 @@ class Learner():
 
         print(f"Model exported to {p}")
 
-    def add_cb(self, cb):
+    def add_cb(self, cb: Callback):
         cb.set_learner(self)
         for existing in self.cbs:
             if existing.name == cb.name:

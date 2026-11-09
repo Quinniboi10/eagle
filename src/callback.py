@@ -148,12 +148,15 @@ class RecorderCallback(Callback):
         self.start = time.time()
 
     def after_batch(self):
+        # Step every batch regardless of state
+        for m in self.metrics:
+            if m.state.value & self.learner.state.value:
+                m.step()
+
         # Only collect training every batch, validation is only once at the end
         if self.learner.state != State.TRAIN:
             return
 
-        for m in self.metrics:
-            m.step()
         self._collect_metrics(State.TRAIN)
         self.step += 1
 

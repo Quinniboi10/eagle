@@ -16,3 +16,6 @@ dependencies = [
 [tool.setuptools]
 packages = ["eagle"]
 package-dir = {eagle = "./src/"}
+
+[tool.setuptools.package-data]
+eagle = ["py.typed"]
