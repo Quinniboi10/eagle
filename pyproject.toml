@@ -15,4 +15,4 @@ dependencies = [
 
 [tool.setuptools]
 packages = ["eagle"]
-package-dir = {eagle = "."}
+package-dir = {eagle = "./src/"}
