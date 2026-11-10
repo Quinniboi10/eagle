@@ -9,7 +9,7 @@ from .metric import *
 from fastprogress.fastprogress import master_bar, progress_bar
 import warnings
 import math
-import pathlib
+from pathlib import Path
 from typing import cast, Optional
 
 device = torch.accelerator.current_accelerator().type if torch.accelerator.is_available() else "cpu" # pyright: ignore[reportOptionalMemberAccess]
@@ -19,19 +19,6 @@ class Learner():
     recorder: RecorderCallback
 
     def __init__(self, model: nn.Module, optimizer: torch.optim.Optimizer, train_dl: DataLoader, valid_dl: DataLoader, loss_fn: nn.Module, metrics: Optional[list[Metric]]=None, cbs: Optional[list[Callback]]=None, clip_grads: Optional[float]=None, accum: int=1, autocast: bool=True):
-        """
-        Args:
-            model: the PyTorch model to train
-            optimizer: the PyTorch optimizer to run
-            train_dl: the PyTorch train dataloader
-            valid_dl: the PyTorch valid dataloader
-            loss_fn: An extension of nn.Module that implements forward(preds, targets)
-            metrics: Which metrics to use apart from LR, train loss, valid loss
-            cbs: Which callbacks to attach after Recorder, TrainEval, State; defaults to Status (None)
-            clip_grads: Clip gradients before optimizer.step(); defaults to off (None)
-            accum: How many batches to average loss across before running optimizer.step(). Simulates true_bs = train_bs * accum
-            autocast: True/False for using PyTorch's built-in automatic type casting to save memory
-        """
         self.model = model
         self.optim = optimizer
 
@@ -218,8 +205,8 @@ class Learner():
 
         self._run_cbs("after_fit")
 
-    def save(self, path: str, silent: bool=False):
-        p = pathlib.Path(path)
+    def save(self, path: Path|str, silent: bool=False):
+        p = Path(path) if not isinstance(path, Path) else path
         if p.suffix != ".pt" and p.suffix != ".pth":
             p = p.with_suffix(".pt")
         p.parent.mkdir(parents=True, exist_ok=True)
@@ -229,8 +216,8 @@ class Learner():
         if not silent:
             print(f"Model saved to {p}")
 
-    def export(self, path: str, *args):
-        p = pathlib.Path(path)
+    def export(self, path: Path|str, *args):
+        p = Path(path) if not isinstance(path, Path) else path
         if p.suffix != ".pt2":
             p = p.with_suffix(".pt2")
         p.parent.mkdir(parents=True, exist_ok=True)
